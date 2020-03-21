@@ -1,4 +1,4 @@
-Docker Installation:
+## Docker Installation:
 Install required packages:
 
 sudo yum install -y device-mapper-persistent-data lvm2
@@ -28,9 +28,8 @@ Test the installation by running a simple container:
 
 docker run hello-world
 
-Selecting a Storage Driver:
+## Selecting a Storage Driver:
 Get the current storage driver:
-
 docker info
 
 Set the storage driver explicitly by providing a flag to the Docker daemon:
