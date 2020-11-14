@@ -2,30 +2,57 @@ FROM jenkinsci/jnlp-slave
 
 USER root
 
-# Note: Latest version of kubectl may be found at:
-# https://aur.archlinux.org/packages/kubectl-bin/
-ENV KUBE_LATEST_VERSION="v1.18.8"
-# Note: Latest version of helm may be found at:
-# https://github.com/kubernetes/helm/releases
-ENV HELM_VERSION="v3.3.0"
-# Note: Latest version of docker may be found at:
-# https://get.docker.com/builds
-ENV DOCKER_VERSION="19.03.5"
+# Install kubectl
+ENV KUBERNETES_VERSION="1.18.8"
+RUN curl -L https://storage.googleapis.com/kubernetes-release/release/v${KUBERNETES_VERSION}/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl \
+    && chmod +x /usr/local/bin/kubectl
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Install Kubectl
-    && curl -L https://storage.googleapis.com/kubernetes-release/release/${KUBE_LATEST_VERSION}/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl \
-    && chmod +x /usr/local/bin/kubectl \
-    # Install Helm
-    && curl -L http://storage.googleapis.com/kubernetes-helm/helm-${HELM_VERSION}-linux-amd64.tar.gz -o /tmp/helm.tar.gz \
-    && tar -zxvf /tmp/helm.tar.gz -C /tmp \
+RUN apt-get install tar gzip ca-certificates git
+
+# Install Helm
+#ENV HELM_VERSION="v3.3.0"
+ENV HELM_VERSION v3.3.0
+ENV HELM_FILENAME helm-${HELM_VERSION}-linux-amd64.tar.gz
+RUN curl -L https://get.helm.sh/${HELM_FILENAME} | tar zxv -C /tmp \
     && cp /tmp/linux-amd64/helm /usr/local/bin/helm \
-    # Install Docker
-    && curl -fsSLO https://get.docker.com/builds/Linux/x86_64/docker-$DOCKER_VERSION-ce.tgz \
-    && tar --strip-components=1 -xvzf docker-$DOCKER_VERSION-ce.tgz -C /usr/local/bin \
-    && chmod a+x /usr/local/bin/dockerd \
-    # Cleanup uncessary files
-    && apt-get clean \
-    && rm -rf /tmp/* ~/*.tgz
- 
- USER jenkins
+    && chmod +x /usr/local/bin/helm
+
+# Install Docker
+ENV DOCKER_VERSION="18.06.1"
+
+RUN apt-get update && \
+    apt-get install -qq -y --no-install-recommends \
+      apt-transport-https \
+      ca-certificates \
+      curl \
+      gnupg2 \
+      software-properties-common \
+      xz-utils
+
+RUN curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - && \
+    apt-key fingerprint 0EBFCD88 && \
+    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian stretch stable" && \
+    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian stretch stable" && \
+    apt-get update && \
+    apt-get install -qq -y --no-install-recommends docker-ce=${DOCKER_VERSION}~ce~3-0~debian
+
+# Cleanup
+RUN apt-get clean \
+    && rm -rf /tmp/* ~/*.tgz \
+    && rm -rf /var/cache/apk/*
+
+# Verify that everything has been installed
+#RUN kubectl version --client
+#RUN helm version
+#RUN systemctl start docker.service
+
+RUN usermod -a -G docker jenkins
+USER jenkins
+RUN kubectl version --client
+RUN helm version
+RUN docker -v
+
+#ADD ./run-all /usr/local/bin/run-all
+#RUN chmod +x /usr/local/bin/run-all
+
+#ENTRYPOINT ["run-all"]
